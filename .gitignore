@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.egg-info/
+.eggs/
+*.egg
+dist/
+build/
+.venv/
+venv/
+env/
+.env
+
+# PyInstaller
+*.spec.bak
+dist/
+build/
+
+# Inno Setup output
+installer/Output/
+
+# Tests / QA
+.pytest_cache/
+.coverage
+htmlcov/
+test_results.txt
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Real data files (não versionar dados de clientes)
+COMPRAS LE PAIN.xlsx
+consumodemateriaprima*.csv
