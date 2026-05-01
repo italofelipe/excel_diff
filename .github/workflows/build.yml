@@ -18,7 +18,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
@@ -27,7 +27,7 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -v
 
-  # ── 2. Build installer (only on tags) ─────────────────────────────────────
+  # ── 2. Build installer (only on version tags) ─────────────────────────────
   build:
     name: Build installer
     runs-on: windows-latest
@@ -39,7 +39,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.12"
           cache: pip
 
       - name: Install Python dependencies
@@ -48,27 +48,16 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
 
-      # Optional: restore PFX from secret for code signing
-      - name: Restore signing certificate
-        if: secrets.SIGN_PFX_BASE64 != ''
-        shell: pwsh
-        run: |
-          $pfxBytes = [Convert]::FromBase64String("${{ secrets.SIGN_PFX_BASE64 }}")
-          $pfxPath  = "$env:RUNNER_TEMP\cert.pfx"
-          [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
-          echo "SIGN_PFX_PATH=$pfxPath"         >> $env:GITHUB_ENV
-          echo "SIGN_PFX_PASSWORD=${{ secrets.SIGN_PFX_PASSWORD }}" >> $env:GITHUB_ENV
-
       - name: Build
         run: python build.py
 
-      - name: Verify build artifacts
+      - name: Verify artifacts
         shell: pwsh
         run: |
           $exe       = "dist\ExcelDiff\ExcelDiff.exe"
           $installer = Get-ChildItem "installer\Output\*.exe" | Select-Object -First 1
-          if (-not (Test-Path $exe))            { throw "ExcelDiff.exe not found" }
-          if (-not $installer)                  { throw "Installer not found" }
+          if (-not (Test-Path $exe)) { throw "ExcelDiff.exe not found" }
+          if (-not $installer)       { throw "Installer not found" }
           Write-Output "exe:       $exe"
           Write-Output "installer: $($installer.FullName)"
 
@@ -79,7 +68,6 @@ jobs:
           path: installer/Output/*.exe
           retention-days: 30
 
-      # ── 3. Create GitHub Release ──────────────────────────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -87,5 +75,3 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
