@@ -1,0 +1,91 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── 1. Tests (always) ─────────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: python -m pytest tests/ -v
+
+  # ── 2. Build installer (only on tags) ─────────────────────────────────────
+  build:
+    name: Build installer
+    runs-on: windows-latest
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      # Optional: restore PFX from secret for code signing
+      - name: Restore signing certificate
+        if: secrets.SIGN_PFX_BASE64 != ''
+        shell: pwsh
+        run: |
+          $pfxBytes = [Convert]::FromBase64String("${{ secrets.SIGN_PFX_BASE64 }}")
+          $pfxPath  = "$env:RUNNER_TEMP\cert.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
+          echo "SIGN_PFX_PATH=$pfxPath"         >> $env:GITHUB_ENV
+          echo "SIGN_PFX_PASSWORD=${{ secrets.SIGN_PFX_PASSWORD }}" >> $env:GITHUB_ENV
+
+      - name: Build
+        run: python build.py
+
+      - name: Verify build artifacts
+        shell: pwsh
+        run: |
+          $exe       = "dist\ExcelDiff\ExcelDiff.exe"
+          $installer = Get-ChildItem "installer\Output\*.exe" | Select-Object -First 1
+          if (-not (Test-Path $exe))            { throw "ExcelDiff.exe not found" }
+          if (-not $installer)                  { throw "Installer not found" }
+          Write-Output "exe:       $exe"
+          Write-Output "installer: $($installer.FullName)"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExcelDiff-installer-${{ github.ref_name }}
+          path: installer/Output/*.exe
+          retention-days: 30
+
+      # ── 3. Create GitHub Release ──────────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/*.exe
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -37,6 +37,9 @@ desktop.ini
 .idea/
 *.iml
 
+# Certificates — NEVER commit private keys
+certs/
+
 # Real data files (não versionar dados de clientes)
 COMPRAS LE PAIN.xlsx
 consumodemateriaprima*.csv
