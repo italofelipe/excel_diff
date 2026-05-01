@@ -43,10 +43,20 @@ def patch_version_file(version: str):
     (ROOT / 'version_file.txt').write_text(text, encoding='utf-8')
 
 
+def _force_remove(_func, path, _exc):
+    import os
+    import stat
+    os.chmod(path, stat.S_IWRITE)
+    if os.path.isfile(path):
+        os.remove(path)
+    else:
+        os.rmdir(path)
+
+
 def clean():
     for d in (DIST, BUILD):
         if d.exists():
-            shutil.rmtree(d)
+            shutil.rmtree(d, onexc=_force_remove)
     print('Cleaned dist/ and build/')
 
 
